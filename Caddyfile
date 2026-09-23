@@ -1,0 +1,25 @@
+# GAEA · proxy reverso com TLS automático
+# Caddy resolve o certificado Let's Encrypt sozinho e renova sem intervenção.
+#   caddy run --config Caddyfile
+gaea.seudominio.com.br {
+	encode zstd gzip
+
+	# limite na borda: antes de o pedido chegar à aplicação
+	rate_limit {
+		zone geral {
+			key {remote_host}
+			events 300
+			window 1m
+		}
+	}
+
+	reverse_proxy 127.0.0.1:8080 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	log {
+		output file /var/log/caddy/gaea.log
+		format json
+	}
+}

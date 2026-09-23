@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Gaea — Fluxos & Espaços Abertos</title>
+<meta name="description" content="Mapa esquemático de áreas verdes, praças, parques e cursos d'água cruzado com o fluxo de movimentação de massas." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="css/style.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ─────────── PAINEL LATERAL ─────────── -->
+  <aside id="sidebar">
+    <header class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" class="bm-o"/><path d="M4 18c5-6 9 2 14-3s7 1 10-1" class="bm-w"/><circle cx="16" cy="16" r="4.5" class="bm-c"/></svg>
+      </div>
+      <div class="brand-txt">
+        <h1>GAEA</h1>
+        <p>fluxo de massas · espaços abertos</p>
+      </div>
+      <button id="btn-collapse" class="icon-btn" title="Recolher painel" aria-label="Recolher painel">‹</button>
+    </header>
+
+    <button id="btn-conta" class="conta-chip"></button>
+
+    <div class="scroll">
+
+      <section class="panel">
+        <div class="search-wrap">
+          <input id="search" type="search" placeholder="Buscar cidade, bairro, parque…" autocomplete="off" />
+          <button id="btn-geo" class="icon-btn ghost" title="Usar minha localização" aria-label="Usar minha localização">◎</button>
+        </div>
+        <ul id="search-results" class="search-results" hidden></ul>
+        <div class="chips" id="city-chips"></div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Base do mapa</h2>
+        <div class="seg" id="basemap-seg" role="tablist"></div>
+        <label class="slider-row">
+          <span>Relevo <em id="relief-val">45%</em></span>
+          <input id="relief" type="range" min="0" max="100" value="45" />
+        </label>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Camadas de lugar</h2>
+        <ul class="layer-list" id="layer-list"></ul>
+        <button id="btn-refresh" class="btn primary block">
+          <span class="spin" hidden></span><span class="lbl">Buscar nesta área</span>
+        </button>
+        <p class="hint">Dados de lugar: OpenStreetMap via Overpass API.</p>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Fluxo de movimentação</h2>
+        <ul class="layer-list" id="flow-list"></ul>
+        <label class="slider-row">
+          <span>Intensidade <em id="flow-val">100%</em></span>
+          <input id="flow-intensity" type="range" min="20" max="200" value="100" />
+        </label>
+        <button id="btn-agente" class="btn block agente-btn">
+          <span class="ag-ico">◈</span> Dados &amp; satélite — o que dá para plugar
+        </button>
+
+        <div class="datasrc">
+          <span class="dot sim" id="src-dot"></span>
+          <span id="src-label">Fonte: modelo sintético</span>
+          <button id="btn-import" class="link-btn">importar dados reais</button>
+          <input id="file-input" type="file" accept=".csv,.json,.geojson" hidden />
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Mapa social</h2>
+        <button id="btn-social" class="btn block social-btn"></button>
+        <p class="social-status" id="social-status"></p>
+        <ul class="social-list" id="social-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Pins</h2>
+        <button id="btn-pin" class="btn block pin-btn"></button>
+        <ul class="pin-list" id="pin-list"></ul>
+      </section>
+
+      <section class="panel" id="rank-panel">
+        <h2 class="panel-title">Hotspots por fluxo <em id="rank-hour"></em></h2>
+        <ol class="rank" id="rank"></ol>
+      </section>
+
+      <footer class="credits">
+        <p>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contribuidores · relevo <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> · tiles <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> · fotos <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a></p>
+      </footer>
+    </div>
+  </aside>
+
+  <!-- ─────────── MAPA ─────────── -->
+  <main id="map-wrap">
+    <div id="map"></div>
+
+    <button id="btn-expand" class="icon-btn floating expand" title="Abrir painel" aria-label="Abrir painel">›</button>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <!-- linha do tempo -->
+    <div class="timeline glass">
+      <div class="tl-botoes">
+        <button id="btn-play" class="icon-btn" title="Animar o dia" aria-label="Animar o dia">▶</button>
+        <button id="btn-agora" class="icon-btn tiny-lbl" title="Ir para o horário atual" aria-label="Agora">agora</button>
+      </div>
+      <div class="tl-body">
+        <div class="tl-head">
+          <strong id="hour-label">08:00</strong>
+          <span id="day-label">dia útil</span>
+          <span class="tl-flow" id="tl-flow">— pessoas/h</span>
+        </div>
+        <input id="hour" type="range" min="0" max="86399" step="60" value="28800" />
+        <div class="tl-ticks"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+      </div>
+      <div class="tl-ctrl">
+        <div class="seg mini" id="day-seg">
+          <button data-day="weekday" class="active">útil</button>
+          <button data-day="weekend">fim de semana</button>
+        </div>
+        <div class="seg mini" id="gran-seg" title="Granularidade do relógio">
+          <button data-g="3600">h</button>
+          <button data-g="60" class="active">min</button>
+          <button data-g="1">seg</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- legenda -->
+    <div class="legend glass" id="legend">
+      <div class="legend-head"><span>Legenda</span><button id="legend-toggle" class="icon-btn tiny">–</button></div>
+      <div class="legend-body" id="legend-body"></div>
+    </div>
+  </main>
+
+  <!-- ─────────── FICHA DO LOCAL ─────────── -->
+  <section id="detail" class="detail" hidden aria-live="polite">
+    <button id="detail-close" class="icon-btn close" aria-label="Fechar">×</button>
+    <div class="detail-media" id="detail-media"></div>
+    <div class="detail-body">
+      <span class="tag" id="detail-tag">—</span>
+      <h3 id="detail-name">—</h3>
+      <p class="detail-sub" id="detail-sub"></p>
+      <div class="metrics" id="detail-metrics"></div>
+      <div class="sparkline-wrap">
+        <div class="sl-head"><span>Fluxo ao longo do dia</span><em id="detail-peak"></em></div>
+        <svg id="sparkline" viewBox="0 0 280 64" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="detail-actions">
+        <a id="link-sv" class="btn" target="_blank" rel="noopener">Street View</a>
+        <a id="link-gmaps" class="btn ghost" target="_blank" rel="noopener">Google Maps</a>
+        <a id="link-osm" class="btn ghost" target="_blank" rel="noopener">OSM</a>
+      </div>
+    </div>
+  </section>
+  <!-- ─────────── CONTAS E PLANOS ─────────── -->
+  <div id="contas" class="modal" hidden>
+    <div class="modal-card">
+      <button id="contas-fechar" class="icon-btn close" aria-label="Fechar">&times;</button>
+      <div id="contas-corpo"></div>
+    </div>
+  </div>
+
+  <!-- ─────────── CONSENTIMENTO DE LOCALIZAÇÃO ─────────── -->
+  <div id="consent" class="modal" hidden>
+    <div class="modal-card">
+      <button id="consent-fechar" class="icon-btn close" aria-label="Fechar">&times;</button>
+      <div id="consent-corpo"></div>
+    </div>
+  </div>
+
+  <!-- ─────────── AGENTE DE DADOS ─────────── -->
+  <section id="agente" class="agente" hidden aria-label="Assistente de dados">
+    <header class="ag-head">
+      <div>
+        <h2>Assistente de dados</h2>
+        <p>fontes gratuitas que entram neste mapa — satélite de hoje, tempo real, fluxo e território</p>
+      </div>
+      <button id="agente-fechar" class="icon-btn" aria-label="Fechar assistente">&times;</button>
+    </header>
+    <div id="agente-corpo" class="ag-corpo"></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="js/config.js"></script>
+<script src="js/osm.js"></script>
+<script src="js/flow.js"></script>
+<script src="js/avatar.js"></script>
+<script src="js/contas.js"></script>
+<script src="js/catalogo.js"></script>
+<script src="js/agente.js"></script>
+<script src="js/pins.js"></script>
+<script src="js/presenca.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
